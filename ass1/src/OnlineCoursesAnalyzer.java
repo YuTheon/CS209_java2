@@ -158,11 +158,28 @@ public class OnlineCoursesAnalyzer {
     //6
     public List<String> recommendCourses(int age, int gender, int isBachelorOrHigher) {
 //        TODO 按照时间排出最后一个 number-title,可能在这里出问题了，执行筛选任务
+//        number_title0 : 按日期排再去重，【在number中取日期最靠前的】
         List<Course> number_title0 = courses
                 .stream()
                 .sorted(Comparator.comparing(Course::getLaunchDate).reversed())
                 .filter(distinctByKey(s->s.number))
                 .toList();
+//        number - courses, ensure that number with most updated course
+        Map<String, List<Course>> number_courses = courses
+                .stream()
+                .sorted(Comparator.comparing(Course::getLaunchDate).reversed())
+                .collect(Collectors.groupingBy(Course::getNumber, Collectors.toList()));
+        Map<String, Course> number_course = number_courses.entrySet()
+                .stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e->e.getValue().get(0)));
+//        for (Map.Entry<String, List<Course>> entry : number_courses.entrySet()){
+//            System.out.println("key " + entry.getKey());
+//            for (int i = 0; i < entry.getValue().size(); i++) {
+//                Course temp = entry.getValue().get(i);
+//                System.out.printf("number %s, title %s, date %s\n", temp.number, temp.title, temp.launchDate);
+//            }
+//            System.out.println();
+//        }
         Map<String, String> number_title = number_title0
                 .stream()
                 .collect(Collectors.toMap(Course::getNumber, Course::getTitle));
@@ -175,16 +192,17 @@ public class OnlineCoursesAnalyzer {
         Map<String, Double> res_bac = courses
                 .stream()
                 .collect(Collectors.groupingBy(Course::getNumber, Collectors.averagingDouble(Course::getPercentDegree)));
+//        res : number - sim_value
         Map<String, Double> res = new HashMap<>();
         for(String number : res_age.keySet()){
-            double sim = Math.pow(age-res_age.get(number), 2) + Math.pow(gender - res_gen.get(number), 2) +
-                    Math.pow(isBachelorOrHigher - res_bac.get(number), 2);
+            double sim = Math.pow(age-res_age.get(number), 2) + Math.pow(gender*100 - res_gen.get(number), 2) +
+                    Math.pow(isBachelorOrHigher*100 - res_bac.get(number), 2);
 //            List<Double> val = Arrays.asList(res_age.get(number), res_gen.get(number), res_bac.get(number));
-            res.put(number, -sim);
+            res.put(number, sim);
         }
         List<String> res_sim = res.entrySet().stream().sorted(
-                Comparator.comparing((Map.Entry<String, Double> e)->e.getValue()).thenComparing(e->number_title.get(e.getKey())))
-                .map(e->number_title.get(e.getKey()))
+                Comparator.comparing((Map.Entry<String, Double> e)->e.getValue()).thenComparing(e->number_course.get(e.getKey()).title))
+                .map(e->number_course.get(e.getKey()).title)
                 .distinct()
                 .limit(10)
                 .toList();
@@ -192,9 +210,9 @@ public class OnlineCoursesAnalyzer {
                 .stream()
                 .filter(distinctByKey(s->s.title))
                 .collect(Collectors.toMap(Course::getTitle, Course::getNumber));
-        for (int i = 0; i < res_sim.size(); i++) {
-            System.out.printf("title-sim : %s = %f\n", res_sim.get(i), res.get(title_number.get(res_sim.get(i))));
-        }
+//        for (int i = 0; i < res_sim.size(); i++) {
+//            System.out.printf("title-sim : %s = %f\n", res_sim.get(i), res.get(title_number.get(res_sim.get(i))));
+//        }
 
         return res_sim;
     }
